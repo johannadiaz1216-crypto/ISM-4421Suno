@@ -290,19 +290,26 @@
   IDEAS.forEach((idea) =>
     $("#ideaChips").append(h("button", { type: "button", class: "chip", onclick: () => (el.description.value = idea) }, idea))
   );
-  STYLES.forEach((s) =>
-    $("#styleChips").append(
-      h("button", {
-        type: "button",
-        class: "chip",
-        onclick: () => {
-          const cur = el.style.value.split(",").map((x) => x.trim()).filter(Boolean);
-          if (!cur.includes(s)) cur.push(s);
-          el.style.value = cur.join(", ");
-        },
-      }, s)
-    )
-  );
+  // Style suggestions; the signed-in user's favorite genres (from their profile) come first.
+  function renderStyleChips(favorites = []) {
+    const list = [...favorites, ...STYLES.filter((s) => !favorites.includes(s))];
+    $("#styleChips").replaceChildren(
+      ...list.map((s) =>
+        h("button", {
+          type: "button",
+          class: `chip${favorites.includes(s) ? " favorite" : ""}`,
+          title: favorites.includes(s) ? "One of your favorite genres" : null,
+          onclick: () => {
+            const cur = el.style.value.split(",").map((x) => x.trim()).filter(Boolean);
+            if (!cur.includes(s)) cur.push(s);
+            el.style.value = cur.join(", ");
+          },
+        }, favorites.includes(s) ? `★ ${s}` : s)
+      )
+    );
+  }
+  renderStyleChips();
+  window.addEventListener("sunoprofile:change", (e) => renderStyleChips(e.detail?.favorite_genres || []));
 
   el.lyrics.addEventListener("input", () => (el.lyricsCount.textContent = el.lyrics.value.length));
   el.instrumental.addEventListener("change", () => {
@@ -740,11 +747,17 @@
     jobs = load(JOBS_KEY, []);
     renderTracks();
     renderJobs();
-    if (!document.body.classList.contains("signed-out")) openKeyDialog();
+
+    // First the profile step (only shown until the user has one), then the Suno key.
+    const gen = sessionGen;
+    Promise.resolve(window.SunoProfile.onSignedIn(user)).finally(() => {
+      if (gen === sessionGen && !apiKey && !document.body.classList.contains("signed-out")) openKeyDialog();
+    });
   }
 
   function onSignedOut() {
     sessionGen++;
+    window.SunoProfile.onSignedOut();
     activePolls = new Set();
     setKey(""); // the Suno key never outlives the session
     LIBRARY_KEY = JOBS_KEY = null;
@@ -760,6 +773,7 @@
   }
 
   window.SunoAuth.onChange((user) => (user ? onSignedIn(user) : onSignedOut()));
+  window.addEventListener("sunoapp:toast", (e) => toast(e.detail));
   window.addEventListener("sunoauth:toast", (e) => {
     toast(e.detail);
     if (!apiKey) openKeyDialog();

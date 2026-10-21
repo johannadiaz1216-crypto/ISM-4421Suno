@@ -5,6 +5,7 @@ A one-page AI music generator built on the [Suno API](https://docs.sunoapi.org),
 ## Features
 
 - **Email login** – sign up, sign in, forgot/reset password, sign out (Supabase Auth). The app and the API proxy only work for signed-in users.
+- **User profiles** – first sign-in asks each user to create a profile: display name, unique @username, bio, favorite genres (shown first as style suggestions) and a photo (cropped and resized to 256px in the browser).
 - **Bring your own API key** – entered at runtime, kept only in the tab's memory. It is never saved to storage, the repo, or the server, and it's gone when you reload.
 - **Simple mode** – describe a song and Suno writes the lyrics and music.
 - **Custom mode** – title, style tags, your own lyrics, excluded styles, vocal gender, duration, and style/weirdness/variety controls.
@@ -21,6 +22,7 @@ public/
   index.html, styles.css
   config.js              Supabase project URL + publishable key (public by design)
   auth.js                email/password sign-in UI (Supabase Auth)
+  profile.js             profile create/edit + avatar upload
   app.js                 music app
   vendor/                supabase-js 2.117.2 UMD build (vendored, no CDN)
 netlify/functions/
@@ -28,6 +30,7 @@ netlify/functions/
   callback.mjs           /api/callback – acknowledges Suno's required callback
 netlify/lib/auth.mjs     verifies Supabase session tokens (ES256) against the project's public JWKS
 netlify.toml
+supabase/migrations/     database changes applied to the Supabase project
 ```
 
 **Login enforcement.** The browser sends its Supabase session token in an `X-Supabase-Auth` header. The proxy
@@ -36,8 +39,25 @@ checks the token's signature against the project's public signing keys
 valid session get a 401. This needs no secrets or environment variables. Set `SUPABASE_URL` only if you move to
 another Supabase project.
 
-**Database.** Supabase Auth stores users in `auth.users`. The existing `public.profiles` table is filled by the
-`on_auth_user_created` trigger, and Row Level Security limits each user to their own row.
+**Database.** Supabase Auth stores users in `auth.users`. The `on_auth_user_created` trigger creates an empty
+`public.profiles` row for each new user, and the app asks them to fill it in on first sign-in.
+
+| Column | Rules |
+| --- | --- |
+| `display_name` | required by the app, 1–50 chars |
+| `username` | optional, unique, `^[a-z0-9_]{3,20}$` |
+| `bio` | optional, up to 280 chars |
+| `favorite_genres` | up to 8 |
+| `avatar_path` | file in the `avatars` bucket, must be inside the user's own folder |
+
+Security:
+- Row Level Security limits each user to reading, creating and updating **only their own row**.
+- Column-level grants block changes to `id` and `email`.
+- Anonymous users get no access, and `TRUNCATE` is revoked for everyone.
+- Avatars live in the public-read `avatars` storage bucket (images only, 2 MB max). Users can upload or delete
+  files only in `avatars/<their user id>/`. Photo URLs are unguessable but public, which is normal for avatars.
+
+See `supabase/migrations/` for the exact SQL.
 
 The browser sends the user's key in the `Authorization` header with each request. The proxy function
 forwards it to Suno, which avoids browser CORS limits. It only allows the endpoints the app uses and

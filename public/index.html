@@ -14,7 +14,10 @@
     <div class="account">
       <span id="credits" class="pill" hidden></span>
       <button id="keyButton" class="btn ghost" type="button">Set API key</button>
-      <span id="userEmail" class="user-email" hidden></span>
+      <button id="profileButton" class="profile-button" type="button" hidden>
+        <span id="profileButtonAvatar" class="avatar small" aria-hidden="true"></span>
+        <span id="profileButtonName" class="profile-button-name"></span>
+      </button>
       <button id="signOutButton" class="btn ghost" type="button" hidden>Sign out</button>
     </div>
   </header>
@@ -189,11 +192,54 @@
     </form>
   </dialog>
 
+  <!-- Profile dialog -->
+  <dialog id="profileDialog" class="profile-dialog">
+    <form method="dialog" id="profileForm" novalidate>
+      <h3 id="profileHeading">Your profile</h3>
+      <p id="profileIntro" hidden>Tell us a bit about yourself. Only you can see your profile.</p>
+
+      <div class="profile-photo">
+        <span id="profileAvatar" class="avatar large" aria-hidden="true"></span>
+        <div class="profile-photo-actions">
+          <button type="button" id="profilePhotoButton" class="btn small">Upload photo</button>
+          <button type="button" id="profilePhotoRemove" class="btn small ghost" hidden>Remove</button>
+          <input id="profileFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic" hidden />
+          <div class="field-hint">Square crop, resized automatically.</div>
+        </div>
+      </div>
+
+      <label for="profileDisplayName">Display name</label>
+      <input id="profileDisplayName" type="text" maxlength="50" autocomplete="name" placeholder="Johanna D." required />
+
+      <label for="profileUsername">Username</label>
+      <div class="input-prefix"><span>@</span><input id="profileUsername" type="text" maxlength="20" autocomplete="username" spellcheck="false" autocapitalize="none" placeholder="beatmaker_jo" /></div>
+      <div id="profileUsernameHint" class="field-hint"></div>
+
+      <label for="profileBio">Bio</label>
+      <textarea id="profileBio" rows="3" maxlength="280" placeholder="What kind of music do you make?"></textarea>
+      <div class="counter"><span id="profileBioCount">0</span> / 280</div>
+
+      <div class="label-row">
+        <label>Favorite genres</label><span id="profileGenresCount" class="field-hint"></span>
+      </div>
+      <div id="profileGenres" class="chips"></div>
+      <div class="field-hint">These show up first when you pick a style.</div>
+
+      <div class="field-hint profile-email">Signed in as <span id="profileEmail"></span></div>
+      <p id="profileError" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="profileSkip" class="btn ghost">Cancel</button>
+        <button type="submit" id="profileSave" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="vendor/supabase-2.117.2.js"></script>
   <script src="config.js"></script>
   <script src="auth.js"></script>
+  <script src="profile.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // Email + password sign-in with Supabase Auth.
-// Exposes window.SunoAuth = { onChange(fn), getAccessToken(), signOut() }.
+// Exposes window.SunoAuth = { client, user, onChange(fn), getAccessToken(), signOut() }.
 window.SunoAuth = (() => {
   "use strict";
 
@@ -23,7 +23,6 @@ window.SunoAuth = (() => {
     toggle: $("#authToggle"),
     forgot: $("#authForgot"),
     back: $("#authBack"),
-    userEmail: $("#userEmail"),
     signOut: $("#signOutButton"),
   };
 
@@ -83,8 +82,6 @@ window.SunoAuth = (() => {
   function setUser(user) {
     const changed = (user?.id || null) !== (currentUser?.id || null);
     currentUser = user;
-    el.userEmail.textContent = user?.email || "";
-    el.userEmail.hidden = !user;
     el.signOut.hidden = !user;
     if (view !== "reset") showScreen(!user);
     if (changed) listeners.forEach((fn) => fn(user));
@@ -169,6 +166,7 @@ window.SunoAuth = (() => {
   setView("signin");
 
   return {
+    client,
     onChange(fn) {
       listeners.push(fn);
     },
