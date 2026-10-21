@@ -2,6 +2,9 @@
 // The browser sends the user's own API key in the Authorization header on every
 // request; this function forwards it upstream and never logs or stores it.
 // Proxying avoids browser CORS restrictions on direct calls to api.sunoapi.org.
+// Only signed-in users (valid Supabase session token in X-Supabase-Auth) are served.
+
+import { verifyAccessToken } from "../lib/auth.mjs";
 
 const UPSTREAM = "https://api.sunoapi.org";
 
@@ -28,6 +31,9 @@ export default async (req) => {
   const method = ALLOWED.get(upstreamPath);
   if (!method) return json(404, { code: 404, msg: "Unknown endpoint" });
   if (req.method !== method) return json(405, { code: 405, msg: "Method not allowed" });
+
+  const userId = await verifyAccessToken(req.headers.get("x-supabase-auth"));
+  if (!userId) return json(401, { code: 401, auth: true, msg: "Please sign in again." });
 
   const auth = req.headers.get("authorization");
   if (!auth || !/^Bearer\s+\S+/.test(auth)) {

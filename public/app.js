@@ -5,8 +5,11 @@
   const API_BASE = "/api/suno/v1"; // Netlify Function proxy -> https://api.sunoapi.org/api/v1
   const POLL_MS = 5000;
   const POLL_TIMEOUT_MS = 10 * 60 * 1000;
-  const LIBRARY_KEY = "suno-studio.library.v1";
-  const JOBS_KEY = "suno-studio.jobs.v1";
+  // Track history is stored per signed-in user; these are set when someone signs in.
+  const LEGACY_LIBRARY_KEY = "suno-studio.library.v1";
+  const LEGACY_JOBS_KEY = "suno-studio.jobs.v1";
+  let LIBRARY_KEY = null;
+  let JOBS_KEY = null;
 
   const ERROR_CODES = {
     400: "Invalid parameters. Check your inputs.",
@@ -44,9 +47,10 @@
   // The API key lives only in this variable: never written to storage, never sent anywhere but the proxy.
   let apiKey = "";
   let mode = "simple";
-  let library = load(LIBRARY_KEY, []);
-  let jobs = load(JOBS_KEY, []);
-  const activePolls = new Set();
+  let library = [];
+  let jobs = [];
+  let activePolls = new Set();
+  let sessionGen = 0; // bumped on sign-in/out so in-flight polls from the previous user stop
   let extendTarget = null;
 
   // ---------- DOM ----------
@@ -112,6 +116,7 @@
     }
   }
   function save(key, value) {
+    if (!key) return;
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ }
   }
 
@@ -164,11 +169,17 @@
       openKeyDialog();
       throw new Error("Add your API key first.");
     }
+    const sessionToken = await window.SunoAuth.getAccessToken();
+    if (!sessionToken) {
+      window.SunoAuth.signOut();
+      throw new Error("Please sign in again.");
+    }
     let res;
     try {
       res = await fetch(API_BASE + path, {
         method,
         headers: {
+          "X-Supabase-Auth": sessionToken,
           Authorization: `Bearer ${apiKey}`,
           ...(body ? { "Content-Type": "application/json" } : {}),
         },
@@ -182,6 +193,11 @@
       data = await res.json();
     } catch {
       throw new Error(ERROR_CODES[res.status] || `Unexpected response (HTTP ${res.status}).`);
+    }
+    if (data?.auth) {
+      // The proxy rejected our Supabase session (expired or revoked).
+      window.SunoAuth.signOut();
+      throw new Error(data.msg || "Please sign in again.");
     }
     const code = data?.code ?? res.status;
     if (code !== 200) {
@@ -395,14 +411,17 @@
 
   async function pollJob(job) {
     if (activePolls.has(job.taskId) || !apiKey) return;
+    const gen = sessionGen;
     activePolls.add(job.taskId);
     setJobStatus(job.taskId, "Queued…");
 
     while (Date.now() - job.startedAt < POLL_TIMEOUT_MS) {
+      if (gen !== sessionGen) return;
       let info;
       try {
         info = await api(`/generate/record-info?taskId=${encodeURIComponent(job.taskId)}`);
       } catch (err) {
+        if (gen !== sessionGen) return;
         if (err.code === 401) {
           activePolls.delete(job.taskId);
           setJobStatus(job.taskId, "Waiting for a valid API key…");
@@ -412,6 +431,7 @@
         await sleep(POLL_MS * 2);
         continue;
       }
+      if (gen !== sessionGen) return;
 
       const status = info?.status || "PENDING";
       const items = info?.response?.sunoData || info?.response?.data || [];
@@ -436,6 +456,7 @@
       }[status] || "Working…");
       await sleep(POLL_MS);
     }
+    if (gen !== sessionGen) return;
     activePolls.delete(job.taskId);
     setJobStatus(job.taskId, "Timed out waiting for Suno. Try again later.", true);
   }
@@ -698,8 +719,52 @@
     btn.addEventListener("click", () => btn.closest("dialog").close())
   );
 
-  // ---------- Init ----------
+  // ---------- Sign-in lifecycle ----------
+  function onSignedIn(user) {
+    sessionGen++;
+    activePolls = new Set();
+    LIBRARY_KEY = `suno-studio.${user.id}.library.v1`;
+    JOBS_KEY = `suno-studio.${user.id}.jobs.v1`;
+
+    // One-time move of tracks saved before login existed into the first account that signs in.
+    try {
+      if (localStorage.getItem(LEGACY_LIBRARY_KEY) && !localStorage.getItem(LIBRARY_KEY)) {
+        localStorage.setItem(LIBRARY_KEY, localStorage.getItem(LEGACY_LIBRARY_KEY));
+        localStorage.setItem(JOBS_KEY, localStorage.getItem(LEGACY_JOBS_KEY) || "[]");
+      }
+      localStorage.removeItem(LEGACY_LIBRARY_KEY);
+      localStorage.removeItem(LEGACY_JOBS_KEY);
+    } catch { /* storage unavailable */ }
+
+    library = load(LIBRARY_KEY, []);
+    jobs = load(JOBS_KEY, []);
+    renderTracks();
+    renderJobs();
+    if (!document.body.classList.contains("signed-out")) openKeyDialog();
+  }
+
+  function onSignedOut() {
+    sessionGen++;
+    activePolls = new Set();
+    setKey(""); // the Suno key never outlives the session
+    LIBRARY_KEY = JOBS_KEY = null;
+    library = [];
+    jobs = [];
+    el.audio.pause();
+    el.audio.removeAttribute("src");
+    delete el.audio.dataset.id;
+    el.player.hidden = true;
+    document.querySelectorAll("dialog[open]").forEach((d) => d.close());
+    renderTracks();
+    renderJobs();
+  }
+
+  window.SunoAuth.onChange((user) => (user ? onSignedIn(user) : onSignedOut()));
+  window.addEventListener("sunoauth:toast", (e) => {
+    toast(e.detail);
+    if (!apiKey) openKeyDialog();
+  });
+
   renderTracks();
   renderJobs();
-  openKeyDialog();
 })();

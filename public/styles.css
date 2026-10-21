@@ -95,7 +95,7 @@ a { color: var(--accent-2); }
 .tab.active { background: var(--bg); color: var(--text); font-weight: 600; }
 
 label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
-input[type="text"], input[type="password"], input[type="number"], textarea, select {
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea, select {
   width: 100%;
   background: var(--bg);
   color: var(--text);
@@ -288,3 +288,28 @@ dialog p { color: var(--muted); font-size: 14px; }
 .toast.error { border-color: var(--err); color: var(--err); }
 
 [hidden] { display: none !important; }
+
+/* ---------- Auth ---------- */
+body.signed-out .layout,
+body.signed-out .player,
+body.signed-out #credits,
+body.signed-out #keyButton { display: none !important; }
+
+.auth-screen {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.auth-card { width: min(400px, 100%); padding: 28px 24px; }
+.auth-card h1 { margin: 0; font-size: 24px; }
+.auth-sub { color: var(--muted); margin: 6px 0 8px; }
+.auth-card .btn.block { margin-top: 18px; }
+.auth-message { font-size: 14px; margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; }
+.auth-message.error { color: var(--err); background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.3); }
+.auth-message.ok { color: var(--ok); background: rgba(74, 222, 128, 0.08); border: 1px solid rgba(74, 222, 128, 0.3); }
+.auth-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.link { background: none; border: 0; padding: 0; color: var(--accent-2); font: inherit; font-size: 14px; cursor: pointer; }
+.link:hover { text-decoration: underline; }
+.user-email { font-size: 13px; color: var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .user-email { display: none; } }

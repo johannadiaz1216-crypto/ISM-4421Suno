@@ -8,14 +8,39 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="signed-out">
   <header class="topbar">
     <div class="brand">🎵 <span>Suno Studio</span></div>
     <div class="account">
       <span id="credits" class="pill" hidden></span>
       <button id="keyButton" class="btn ghost" type="button">Set API key</button>
+      <span id="userEmail" class="user-email" hidden></span>
+      <button id="signOutButton" class="btn ghost" type="button" hidden>Sign out</button>
     </div>
   </header>
+
+  <!-- Sign-in screen (shown whenever nobody is signed in) -->
+  <section id="authScreen" class="auth-screen">
+    <form id="authForm" class="card auth-card" novalidate>
+      <h1 id="authHeading">Welcome back</h1>
+      <p id="authSub" class="auth-sub">Sign in to make music.</p>
+      <div id="authEmailRow">
+        <label for="authEmail">Email</label>
+        <input id="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" />
+      </div>
+      <div id="authPasswordRow">
+        <label for="authPassword">Password</label>
+        <input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="At least 6 characters" />
+      </div>
+      <p id="authMessage" class="auth-message" role="alert" hidden></p>
+      <button id="authSubmit" class="btn primary block" type="submit">Sign in</button>
+      <div class="auth-links">
+        <button id="authForgot" class="link" type="button">Forgot password?</button>
+        <button id="authBack" class="link" type="button" hidden>Back to sign in</button>
+        <button id="authToggle" class="link" type="button">New here? Create an account</button>
+      </div>
+    </form>
+  </section>
 
   <main class="layout">
     <!-- Create panel -->
@@ -166,6 +191,9 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+  <script src="vendor/supabase-2.117.2.js"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
