@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suno Studio</title>
+  <meta name="description" content="Generate AI music with the Suno API using your own API key." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🎵 <span>Suno Studio</span></div>
+    <div class="account">
+      <span id="credits" class="pill" hidden></span>
+      <button id="keyButton" class="btn ghost" type="button">Set API key</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Create panel -->
+    <section class="card create">
+      <div class="tabs" role="tablist">
+        <button class="tab active" role="tab" data-mode="simple" aria-selected="true">Simple</button>
+        <button class="tab" role="tab" data-mode="custom" aria-selected="false">Custom</button>
+      </div>
+
+      <form id="generateForm" novalidate>
+        <!-- Simple mode -->
+        <div class="mode-simple">
+          <label for="description">Describe your song</label>
+          <textarea id="description" rows="4" maxlength="3000"
+            placeholder="An upbeat summer pop song about road trips with friends, catchy chorus, female vocals"></textarea>
+          <div class="chips" id="ideaChips"></div>
+        </div>
+
+        <!-- Custom mode -->
+        <div class="mode-custom" hidden>
+          <label for="title">Title</label>
+          <input id="title" type="text" maxlength="80" placeholder="Midnight Drive" />
+
+          <label for="style">Style of music</label>
+          <input id="style" type="text" maxlength="1000" placeholder="synthwave, dreamy, 110 bpm, analog pads" />
+          <div class="chips" id="styleChips"></div>
+
+          <div class="lyrics-head">
+            <label for="lyrics">Lyrics</label>
+            <button type="button" id="lyricsAiButton" class="btn small ghost">✨ Write with AI</button>
+          </div>
+          <textarea id="lyrics" rows="10" maxlength="5000"
+            placeholder="[Verse]&#10;Neon lights across the bay&#10;&#10;[Chorus]&#10;..."></textarea>
+          <div class="counter"><span id="lyricsCount">0</span> / 5000</div>
+
+          <details class="advanced">
+            <summary>Advanced options</summary>
+            <label for="negativeTags">Exclude styles</label>
+            <input id="negativeTags" type="text" maxlength="1000" placeholder="heavy metal, distorted guitars" />
+
+            <label for="vocalGender">Vocal gender</label>
+            <select id="vocalGender">
+              <option value="">No preference</option>
+              <option value="f">Female</option>
+              <option value="m">Male</option>
+            </select>
+
+            <label for="duration">Duration (seconds, optional)</label>
+            <input id="duration" type="number" min="10" max="360" step="1" placeholder="Auto" />
+
+            <label for="styleWeight">Style adherence <output id="styleWeightOut">0.50</output></label>
+            <input id="styleWeight" type="range" min="0" max="1" step="0.01" value="0.5" />
+
+            <label for="weirdness">Weirdness <output id="weirdnessOut">0.50</output></label>
+            <input id="weirdness" type="range" min="0" max="1" step="0.01" value="0.5" />
+
+            <label for="variety">Variety <output id="varietyOut">Normal</output></label>
+            <input id="variety" type="range" min="0" max="4" step="1" value="1" />
+            <label class="check"><input id="useSliders" type="checkbox" /> Send the slider values above</label>
+          </details>
+        </div>
+
+        <div class="row">
+          <label class="switch">
+            <input id="instrumental" type="checkbox" />
+            <span>Instrumental (no vocals)</span>
+          </label>
+          <select id="model" aria-label="Model">
+            <option value="V6" selected>V6 · best quality</option>
+            <option value="V6_WILD">V6 Wild · experimental</option>
+            <option value="V6_MINI">V6 Mini · fast</option>
+          </select>
+        </div>
+
+        <button id="generateButton" class="btn primary block" type="submit">Create</button>
+        <p class="hint">Each request creates two variations. Files are kept by Suno for about 14 days, so download what you want to keep.</p>
+      </form>
+    </section>
+
+    <!-- Results -->
+    <section class="results">
+      <div class="results-head">
+        <h2>Your tracks</h2>
+        <button id="clearLibrary" class="btn small ghost" type="button">Clear list</button>
+      </div>
+      <div id="jobs"></div>
+      <div id="tracks" class="tracks"></div>
+      <p id="emptyState" class="empty">Nothing here yet. Describe a song and hit <b>Create</b>.</p>
+    </section>
+  </main>
+
+  <!-- Sticky player -->
+  <footer id="player" class="player" hidden>
+    <img id="playerCover" alt="" />
+    <div class="player-meta">
+      <div id="playerTitle" class="player-title"></div>
+      <div id="playerTags" class="player-tags"></div>
+    </div>
+    <audio id="audio" controls preload="none"></audio>
+  </footer>
+
+  <!-- API key dialog -->
+  <dialog id="keyDialog">
+    <form method="dialog" id="keyForm">
+      <h3>Your Suno API key</h3>
+      <p>Get a key from <a href="https://sunoapi.org/api-key" target="_blank" rel="noopener">sunoapi.org/api-key</a>.
+        The key stays in this browser tab's memory only. It is never saved, and it is cleared when you close or reload the page.</p>
+      <input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API key" />
+      <p id="keyError" class="error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="forgetKey" class="btn ghost">Forget key</button>
+        <button type="submit" id="saveKey" class="btn primary">Use key</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Lyrics dialog -->
+  <dialog id="lyricsDialog">
+    <form method="dialog" id="lyricsForm">
+      <h3>Write lyrics with AI</h3>
+      <label for="lyricsPrompt">What is the song about?</label>
+      <input id="lyricsPrompt" type="text" maxlength="200" placeholder="A song about a peaceful night in the city" />
+      <div id="lyricsStatus" class="status-line" hidden></div>
+      <div id="lyricsOptions" class="lyrics-options"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" data-close>Close</button>
+        <button type="button" id="lyricsGo" class="btn primary">Generate lyrics</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Extend dialog -->
+  <dialog id="extendDialog">
+    <form method="dialog" id="extendForm">
+      <h3>Extend “<span id="extendName"></span>”</h3>
+      <label for="continueAt">Continue from (seconds)</label>
+      <input id="continueAt" type="number" min="1" step="1" />
+      <label for="extendStyle">Style (optional)</label>
+      <input id="extendStyle" type="text" maxlength="1000" />
+      <label for="extendLyrics">Lyrics for the new part (optional)</label>
+      <textarea id="extendLyrics" rows="5" maxlength="5000"></textarea>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+        <button type="submit" class="btn primary">Extend</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
